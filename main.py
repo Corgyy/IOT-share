@@ -4,11 +4,9 @@ from machine import Pin, PWM
 import network
 import socket
 import time
-
-# Khởi tạo LED nội bộ
 internalLED = Pin('LED', Pin.OUT)
 
-# Khởi tạo các chân điều khiển động cơ
+# Điểu khiển động cơ DC
 IN1 = Pin(11, Pin.OUT)
 IN2 = Pin(12, Pin.OUT)
 ENA = PWM(Pin(10))
@@ -19,7 +17,6 @@ IN4 = Pin(15, Pin.OUT)
 ENB = PWM(Pin(13))
 ENB.freq(1000)
 
-# Hàm điều khiển động cơ A
 def motorA_forward(speed=50000):
     IN1.high()
     IN2.low()
@@ -35,7 +32,6 @@ def motorA_stop():
     IN1.low()
     IN2.low()
 
-# Hàm điều khiển động cơ B
 def motorB_forward(speed=50000):
     IN3.high()
     IN4.low()
@@ -51,7 +47,6 @@ def motorB_stop():
     IN3.low()
     IN4.low()
 
-# Hàm điều khiển xe - đồng bộ tín hiệu
 def car_forward(speed=50000):
     IN1.high()
     IN2.low()
@@ -115,7 +110,7 @@ else:
     while True:
         pass
 
-# Tạo socket server
+# Tạo socket server để request HTTP --> điểu khiển xe
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Tái sử dụng địa chỉ
 server.bind((ip, 80))
@@ -128,8 +123,7 @@ while True:
     try:
         conn, addr = server.accept()
         print("Client kết nối từ:", addr)
-        
-        # Nhận và xử lý yêu cầu
+
         request = conn.recv(1024).decode()
         print("Request:", request)
         
@@ -159,7 +153,7 @@ while True:
         print("Lỗi:", e)
         conn.close()
     finally:
-        internalLED.value(0)  # Tắt LED sau khi xử lý
+        internalLED.value(0)  
 
 
 #neo-6m
