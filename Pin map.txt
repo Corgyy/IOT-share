@@ -1,0 +1,12 @@
+-- Động cơ DC --
+IN4 nối GP15
+IN3 nối GP14
+ENB nối GP13
+ENA - GP10
+IN1 - GP11
+IN2 - GP12
+
+-- Neo-6m -- 
+Vcc - 3.3v out
+RX - GP0
+TX - GP1
