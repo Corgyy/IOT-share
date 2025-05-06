@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Điều Khiển LED Qua Firebase</title>
+    <script type="module">
+      // Import Firebase SDK
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+      import {
+        getDatabase,
+        ref,
+        set,
+        onValue,
+      } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+
+      // Cấu hình Firebase (Dán config lấy từ Firebase Console vào đây)
+      const firebaseConfig = {
+        apiKey: "AIzaSyABWzsdRC9GUykZddsTp8uvyimfPou6Jkg",
+        authDomain: "iot-database-test.firebaseapp.com",
+        databaseURL:
+          "https://iot-database-test-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "iot-database-test",
+        storageBucket: "iot-database-test.firebasestorage.app",
+        messagingSenderId: "658777838654",
+        appId: "1:658777838654:web:bfa426dc372ac06309ed6f",
+        measurementId: "G-01RNH1R1BY",
+      };
+
+      // Khởi tạo Firebase
+      const app = initializeApp(firebaseConfig);
+      const db = getDatabase(app);
+
+      // Hàm cập nhật trạng thái LED lên Firebase
+      function setLED(status) {
+        set(ref(db, "led_status"), status);
+      }
+
+      // Theo dõi trạng thái LED từ Firebase
+      onValue(ref(db, "led_status"), (snapshot) => {
+        document.getElementById("ledStatus").innerText = snapshot.val();
+      });
+
+      // Gắn sự kiện cho các nút bấm
+      window.setLED = setLED;
+    </script>
+  </head>
+  <body>
+    <h2>Điều Khiển LED Qua Firebase</h2>
+    <button onclick="setLED('ON')">Bật LED</button>
+    <button onclick="setLED('OFF')">Tắt LED</button>
+    <p>Trạng thái LED: <span id="ledStatus">Đang cập nhật...</span></p>
+  </body>
+</html>
