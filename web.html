@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hiển Thị GPS và Điều Khiển LED Qua Firebase</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        text-align: center;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 10px;
+        font-size: 16px;
+        cursor: pointer;
+      }
+      p {
+        font-size: 18px;
+      }
+      a {
+        color: blue;
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+    </style>
+    <script type="module">
+      // Import Firebase SDK
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+      import {
+        getDatabase,
+        ref,
+        set,
+        onValue,
+      } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+
+      // Cấu hình Firebase
+      const firebaseConfig = {
+        apiKey: "AIzaSyABWzsdRC9GUykZddsTp8uvyimfPou6Jkg",
+        authDomain: "iot-database-test.firebaseapp.com",
+        databaseURL:
+          "https://iot-database-test-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "iot-database-test",
+        storageBucket: "iot-database-test.firebasestorage.app",
+        messagingSenderId: "658777838654",
+        appId: "1:658777838654:web:bfa426dc372ac06309ed6f",
+        measurementId: "G-01RNH1R1BY",
+      };
+
+      // Khởi tạo Firebase
+      const app = initializeApp(firebaseConfig);
+      const db = getDatabase(app);
+
+      // Hàm cập nhật trạng thái LED lên Firebase
+      function setLED(status) {
+        set(ref(db, "led_status"), status);
+      }
+
+      // Theo dõi trạng thái LED từ Firebase
+      onValue(ref(db, "led_status"), (snapshot) => {
+        document.getElementById("ledStatus").innerText = snapshot.val();
+      });
+
+      // Theo dõi dữ liệu GPS từ Firebase
+      onValue(ref(db, "data"), (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          document.getElementById("latitude").innerText =
+            data.latitude || "Chưa có dữ liệu";
+          document.getElementById("longitude").innerText =
+            data.longitude || "Chưa có dữ liệu";
+          const googleMapsLink = data.google_maps_link || "#";
+          const linkElement = document.getElementById("googleMapsLink");
+          linkElement.href = googleMapsLink;
+          linkElement.innerText =
+            googleMapsLink === "#"
+              ? "Chưa có liên kết"
+              : "Xem trên Google Maps";
+        }
+      });
+
+      // Gắn sự kiện cho các nút bấm
+      window.setLED = setLED;
+    </script>
+  </head>
+  <body>
+    <h2>Hiển Thị Vị Trí GPS và Điều Khiển LED</h2>
+    <h3>Thông Tin Vị Trí GPS</h3>
+    <p>Vĩ độ: <span id="latitude">Đang cập nhật...</span></p>
+    <p>Kinh độ: <span id="longitude">Đang cập nhật...</span></p>
+    <p>
+      Liên kết Google Maps:
+      <a id="googleMapsLink" href="#" target="_blank">Đang cập nhật...</a>
+    </p>
+    <h3>Điều Khiển LED</h3>
+    <button onclick="setLED('ON')">Bật LED</button>
+    <button onclick="setLED('OFF')">Tắt LED</button>
+    <p>Trạng thái LED: <span id="ledStatus">Đang cập nhật...</span></p>
+  </body>
+</html>
