@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hệ Thống Giám Sát Tai Nạn Giao Thông</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet CSS -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+      #map {
+        height: 400px;
+        border-radius: 8px;
+      }
+      .table-container {
+        max-height: 300px;
+        overflow-y: auto;
+      }
+      th,
+      td {
+        border: 1px solid #e5e7eb;
+        padding: 8px;
+        text-align: center;
+      }
+      th {
+        background-color: #f3f4f6;
+      }
+      .severity-light {
+        color: #10b981;
+      }
+      .severity-medium {
+        color: #f59e0b;
+      }
+      .severity-heavy {
+        color: #ef4444;
+      }
+      .pagination-button:disabled {
+        background-color: #d1d5db;
+        cursor: not-allowed;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-100 font-sans">
+    <div class="max-w-6xl mx-auto p-6">
+      <!-- Header -->
+      <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">
+        Hệ Thống Giám Sát Tai Nạn Giao Thông
+      </h1>
+
+      <!-- GPS Info Section -->
+      <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h2 class="text-xl font-semibold text-gray-700 mb-4">
+          Thông Tin Vị Trí GPS
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <p class="text-lg">
+            Vĩ độ:
+            <span id="latitude" class="font-medium">Đang cập nhật...</span>
+          </p>
+          <p class="text-lg">
+            Kinh độ:
+            <span id="longitude" class="font-medium">Đang cập nhật...</span>
+          </p>
+          <p class="text-lg">
+            Khoảng cách:
+            <span id="distance" class="font-medium">Đang cập nhật...</span> cm
+          </p>
+          <p class="text-lg">
+            Liên kết Google Maps:
+            <a
+              id="googleMapsLink"
+              href="#"
+              target="_blank"
+              class="text-blue-600 hover:underline"
+              >Đang cập nhật...</a
+            >
+          </p>
+        </div>
+        <p class="text-lg mt-4">
+          Trạng thái tai nạn:
+          <span id="accidentStatus" class="font-bold text-red-600"
+            >Đang cập nhật...</span
+          >
+        </p>
+      </div>
+
+      <!-- Input and Map Section -->
+      <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h2 class="text-xl font-semibold text-gray-700 mb-4">
+          Cập Nhật Điểm Xuất Phát
+        </h2>
+        <div
+          class="flex flex-col sm:flex-row justify-center items-center gap-4 mb-4"
+        >
+          <input
+            type="text"
+            id="startLat"
+            placeholder="Vĩ độ (VD: 10.8506)"
+            value="10.8506"
+            class="border border-gray-300 rounded-lg p-2 w-full sm:w-40 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <input
+            type="text"
+            id="startLng"
+            placeholder="Kinh độ (VD: 106.7693)"
+            value="106.7693"
+            class="border border-gray-300 rounded-lg p-2 w-full sm:w-40 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <button
+            id="updateStartButton"
+            class="bg-blue-600 text-white rounded-lg px-4 py-2 hover:bg-blue-700 transition"
+          >
+            Cập nhật
+          </button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <p class="text-lg">
+            Khoảng cách đường đi:
+            <span id="routeDistance" class="font-medium">Chưa có dữ liệu</span>
+            km
+          </p>
+          <p class="text-lg">
+            Số tai nạn lịch sử:
+            <span id="accidentCount" class="font-medium">Chưa có dữ liệu</span>
+          </p>
+          <p class="text-lg">
+            Mức độ nghiêm trọng TB:
+            <span id="avgSeverity" class="font-medium">Chưa có dữ liệu</span>
+          </p>
+          <p class="text-lg">
+            Điểm an toàn:
+            <span id="safetyScore" class="font-medium">Chưa có dữ liệu</span>
+          </p>
+        </div>
+        <p class="text-lg">
+          Lý do chọn tuyến:
+          <span id="routeReason" class="font-medium">Chưa có dữ liệu</span>
+        </p>
+        <button
+          id="clearMapButton"
+          class="bg-gray-600 text-white rounded-lg px-4 py-2 mt-4 hover:bg-gray-700 transition"
+        >
+          Xóa bản đồ
+        </button>
+        <div id="map" class="mt-4"></div>
+      </div>
+
+      <!-- Accident History and Charts Section -->
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-xl font-semibold text-gray-700 mb-4">
+          Lịch Sử Tai Nạn
+        </h2>
+        <!-- Filter -->
+        <div class="mb-4">
+          <label for="severityFilter" class="text-lg font-medium mr-2"
+            >Lọc theo mức độ:</label
+          >
+          <select
+            id="severityFilter"
+            class="border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">Tất cả</option>
+            <option value="light">Nhẹ</option>
+            <option value="medium">Trung bình</option>
+            <option value="heavy">Nặng</option>
+          </select>
+        </div>
+        <!-- Table -->
+        <div class="table-container mb-6">
+          <table class="w-full border-collapse">
+            <thead>
+              <tr>
+                <th>Vĩ độ</th>
+                <th>Kinh độ</th>
+                <th>Mức độ</th>
+                <th>Thời gian</th>
+              </tr>
+            </thead>
+            <tbody id="accidentTableBody"></tbody>
+          </table>
+        </div>
+        <!-- Pagination -->
+        <div class="flex justify-center gap-4 mb-6">
+          <button
+            id="prevPageButton"
+            class="bg-blue-600 text-white rounded-lg px-4 py-2 hover:bg-blue-700 transition pagination-button"
+            disabled
+          >
+            Trang trước
+          </button>
+          <span class="text-lg font-medium"
+            >Trang <span id="currentPage">1</span> /
+            <span id="totalPages">1</span></span
+          >
+          <button
+            id="nextPageButton"
+            class="bg-blue-600 text-white rounded-lg px-4 py-2 hover:bg-blue-700 transition pagination-button"
+          >
+            Trang sau
+          </button>
+        </div>
+        <!-- Charts -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h2 class="text-lg font-semibold text-gray-700 mb-4">
+              Tai Nạn Theo Mức Độ
+            </h2>
+            <canvas id="severityChart" class="max-w-full"></canvas>
+          </div>
+          <div>
+            <h2 class="text-lg font-semibold text-gray-700 mb-4">
+              Tai Nạn Theo Ngày
+            </h2>
+            <canvas id="dailyChart" class="max-w-full"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+      import {
+        getDatabase,
+        ref,
+        onValue,
+      } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyABWzsdRC9GUykZddsTp8uvyimfPou6Jkg",
+        authDomain: "iot-database-test.firebaseapp.com",
+        databaseURL:
+          "https://iot-database-test-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "iot-database-test",
+        storageBucket: "iot-database-test.firebasestorage.app",
+        messagingSenderId: "658777838654",
+        appId: "1:658777838654:web:bfa426dc372ac06309ed6f",
+        measurementId: "G-01RNH1R1BY",
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const db = getDatabase(app);
+
+      // Initialize Leaflet Map
+      const map = L.map("map").setView([10.8506, 106.7693], 13);
+      L.tileLayer(
+        "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+        {
+          attribution: "© OpenStreetMap, © CartoDB",
+        }
+      ).addTo(map);
+
+      let routeLayer = null;
+      let startMarker = null;
+      let endMarker = null;
+      let accidentMarkers = [];
+
+      // Custom marker icons
+      const severityIcons = {
+        light: L.divIcon({
+          className: "custom-icon",
+          html: `<div style="background-color: #10b981; width: 12px; height: 12px; border-radius: 50%; border: 2px solid #059669;"></div>`,
+          iconSize: [12, 12],
+          iconAnchor: [6, 6],
+          popupAnchor: [0, -6],
+        }),
+        medium: L.divIcon({
+          className: "custom-icon",
+          html: `<div style="background-color: #f59e0b; width: 12px; height: 12px; border-radius: 50%; border: 2px solid #d97706;"></div>`,
+          iconSize: [12, 12],
+          iconAnchor: [6, 6],
+          popupAnchor: [0, -6],
+        }),
+        heavy: L.divIcon({
+          className: "custom-icon",
+          html: `<div style="background-color: #ef4444; width: 12px; height: 12px; border-radius: 50%; border: 2px solid #dc2626;"></div>`,
+          iconSize: [12, 12],
+          iconAnchor: [6, 6],
+          popupAnchor: [0, -6],
+        }),
+      };
+
+      function clearMap() {
+        if (routeLayer) {
+          map.removeLayer(routeLayer);
+          routeLayer = null;
+        }
+        if (startMarker) {
+          map.removeLayer(startMarker);
+          startMarker = null;
+        }
+        if (endMarker) {
+          map.removeLayer(endMarker);
+          endMarker = null;
+        }
+        accidentMarkers.forEach((marker) => map.removeLayer(marker));
+        accidentMarkers = [];
+        map.setView([10.8506, 106.7693], 13);
+      }
+
+      function showRoute(route, start, end) {
+        clearMap();
+        if (route) {
+          routeLayer = L.polyline(
+            route.map((coord) => [coord[1], coord[0]]),
+            { color: "blue", weight: 5, opacity: 0.8 }
+          ).addTo(map);
+          startMarker = L.marker([start.lat, start.lng])
+            .addTo(map)
+            .bindPopup(`Điểm xuất phát: ${start.lat}, ${start.lng}`);
+          endMarker = L.marker([end.lat, end.lng])
+            .addTo(map)
+            .bindPopup(`Vị trí tai nạn: ${end.lat}, ${end.lng}`)
+            .openPopup();
+          map.fitBounds(
+            [
+              [start.lat, start.lng],
+              [end.lat, end.lng],
+            ],
+            { padding: [50, 50] }
+          );
+        }
+      }
+
+      async function checkAnalysis() {
+        try {
+          const startLat = parseFloat(
+            document.getElementById("startLat").value
+          );
+          const startLng = parseFloat(
+            document.getElementById("startLng").value
+          );
+          if (
+            isNaN(startLat) ||
+            isNaN(startLng) ||
+            startLat < -90 ||
+            startLat > 90 ||
+            startLng < -180 ||
+            startLng > 180
+          ) {
+            document.getElementById("accidentStatus").innerText =
+              "Vui lòng nhập tọa độ hợp lệ";
+            document.getElementById("accidentStatus").style.color = "orange";
+            document.getElementById("routeDistance").innerText =
+              "Chưa có dữ liệu";
+            document.getElementById("accidentCount").innerText =
+              "Chưa có dữ liệu";
+            document.getElementById("avgSeverity").innerText =
+              "Chưa có dữ liệu";
+            document.getElementById("safetyScore").innerText =
+              "Chưa có dữ liệu";
+            document.getElementById("routeReason").innerText =
+              "Chưa có dữ liệu";
+            clearMap();
+            return;
+          }
+
+          const response = await fetch(
+            `http://192.168.1.8:5000/analyze?start_lat=${startLat}&start_lng=${startLng}`
+          );
+          const data = await response.json();
+          const statusElement = document.getElementById("accidentStatus");
+
+          if (data.accident_detected) {
+            statusElement.innerText = `Phát hiện tai nạn tại: ${data.latitude}, ${data.longitude}`;
+            statusElement.style.color = "red";
+            document.getElementById("routeDistance").innerText = data.distance
+              ? data.distance.toFixed(2)
+              : "Chưa có dữ liệu";
+            document.getElementById("accidentCount").innerText =
+              data.accident_count || "0";
+            document.getElementById("avgSeverity").innerText = data.avg_severity
+              ? data.avg_severity.toFixed(2)
+              : "Chưa có dữ liệu";
+            document.getElementById("safetyScore").innerText = data.safety_score
+              ? data.safety_score.toFixed(2)
+              : "Chưa có dữ liệu";
+            document.getElementById("routeReason").innerText =
+              data.reason || "Chưa có lý do";
+            const start = { lat: startLat, lng: startLng };
+            const end = { lat: data.latitude, lng: data.longitude };
+            showRoute(data.route, start, end);
+          } else {
+            statusElement.innerText = "Không phát hiện tai nạn";
+            statusElement.style.color = "green";
+            document.getElementById("routeDistance").innerText =
+              "Chưa có dữ liệu";
+            document.getElementById("accidentCount").innerText =
+              "Chưa có dữ liệu";
+            document.getElementById("avgSeverity").innerText =
+              "Chưa có dữ liệu";
+            document.getElementById("safetyScore").innerText =
+              "Chưa có dữ liệu";
+            document.getElementById("routeReason").innerText =
+              "Chưa có dữ liệu";
+            clearMap();
+          }
+        } catch (error) {
+          console.error("Lỗi khi gọi API:", error);
+          document.getElementById("accidentStatus").innerText =
+            "Lỗi kết nối server";
+          document.getElementById("accidentStatus").style.color = "orange";
+          document.getElementById("routeDistance").innerText =
+            "Chưa có dữ liệu";
+          document.getElementById("accidentCount").innerText =
+            "Chưa có dữ liệu";
+          document.getElementById("avgSeverity").innerText = "Chưa có dữ liệu";
+          document.getElementById("safetyScore").innerText = "Chưa có dữ liệu";
+          document.getElementById("routeReason").innerText = "Chưa có dữ liệu";
+          clearMap();
+        }
+      }
+
+      // Pagination and Filtering
+      let allAccidents = [];
+      let currentPage = 1;
+      const itemsPerPage = 10;
+      let severityFilter = "all";
+      let severityChartInstance = null;
+      let dailyChartInstance = null;
+
+      function updateAccidentTableAndCharts() {
+        const filteredAccidents =
+          severityFilter === "all"
+            ? allAccidents
+            : allAccidents.filter((acc) => acc.severity === severityFilter);
+
+        // Update table with pagination
+        const totalItems = filteredAccidents.length;
+        const totalPages = Math.ceil(totalItems / itemsPerPage);
+        document.getElementById("totalPages").innerText = totalPages;
+        document.getElementById("currentPage").innerText = currentPage;
+
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const pageAccidents = filteredAccidents.slice(startIndex, endIndex);
+
+        const tableBody = document.getElementById("accidentTableBody");
+        tableBody.innerHTML = "";
+        pageAccidents.forEach((acc) => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+          <td>${acc.latitude.toFixed(6)}</td>
+          <td>${acc.longitude.toFixed(6)}</td>
+          <td class="severity-${acc.severity}">${
+            acc.severity.charAt(0).toUpperCase() + acc.severity.slice(1)
+          }</td>
+          <td>${new Date(acc.timestamp * 1000).toLocaleString("vi-VN")}</td>
+        `;
+          tableBody.appendChild(row);
+        });
+
+        // Update map markers
+        accidentMarkers.forEach((marker) => map.removeLayer(marker));
+        accidentMarkers = [];
+        pageAccidents.forEach((acc) => {
+          const marker = L.marker([acc.latitude, acc.longitude], {
+            icon: severityIcons[acc.severity],
+          }).addTo(map).bindPopup(`
+            <b>Tai nạn</b><br>
+            Vĩ độ: ${acc.latitude.toFixed(6)}<br>
+            Kinh độ: ${acc.longitude.toFixed(6)}<br>
+            Mức độ: ${
+              acc.severity.charAt(0).toUpperCase() + acc.severity.slice(1)
+            }<br>
+            Thời gian: ${new Date(acc.timestamp * 1000).toLocaleString("vi-VN")}
+          `);
+          accidentMarkers.push(marker);
+        });
+
+        // Update severity chart
+        const severityCounts = { light: 0, medium: 0, heavy: 0 };
+        filteredAccidents.forEach((acc) => severityCounts[acc.severity]++);
+
+        if (severityChartInstance) severityChartInstance.destroy();
+        const severityCtx = document
+          .getElementById("severityChart")
+          .getContext("2d");
+        severityChartInstance = new Chart(severityCtx, {
+          type: "bar",
+          data: {
+            labels: ["Nhẹ", "Trung bình", "Nặng"],
+            datasets: [
+              {
+                label: "Số lượng tai nạn",
+                data: [
+                  severityCounts.light,
+                  severityCounts.medium,
+                  severityCounts.heavy,
+                ],
+                backgroundColor: ["#10b981", "#f59e0b", "#ef4444"],
+                borderColor: ["#059669", "#d97706", "#dc2626"],
+                borderWidth: 1,
+              },
+            ],
+          },
+          options: {
+            scales: {
+              y: {
+                beginAtZero: true,
+                title: { display: true, text: "Số lượng" },
+              },
+              x: { title: { display: true, text: "Mức độ nghiêm trọng" } },
+            },
+            plugins: { legend: { display: false } },
+          },
+        });
+
+        // Update daily chart
+        const dailyCounts = {};
+        filteredAccidents.forEach((acc) => {
+          const date = new Date(acc.timestamp * 1000).toLocaleDateString(
+            "vi-VN"
+          );
+          dailyCounts[date] = (dailyCounts[date] || 0) + 1;
+        });
+
+        const sortedDates = Object.keys(dailyCounts).sort((a, b) => {
+          const dateA = new Date(a.split("/").reverse().join("-"));
+          const dateB = new Date(b.split("/").reverse().join("-"));
+          return dateA - dateB;
+        });
+        const dailyData = sortedDates.map((date) => dailyCounts[date]);
+
+        if (dailyChartInstance) dailyChartInstance.destroy();
+        const dailyCtx = document.getElementById("dailyChart").getContext("2d");
+        dailyChartInstance = new Chart(dailyCtx, {
+          type: "line",
+          data: {
+            labels: sortedDates,
+            datasets: [
+              {
+                label: "Số lượng tai nạn",
+                data: dailyData,
+                borderColor: "#3b82f6",
+                backgroundColor: "rgba(59, 130, 246, 0.2)",
+                fill: true,
+                tension: 0.3,
+              },
+            ],
+          },
+          options: {
+            scales: {
+              y: {
+                beginAtZero: true,
+                title: { display: true, text: "Số lượng" },
+              },
+              x: { title: { display: true, text: "Ngày" } },
+            },
+            plugins: { legend: { display: false } },
+          },
+        });
+
+        // Update pagination buttons
+        document.getElementById("prevPageButton").disabled = currentPage === 1;
+        document.getElementById("nextPageButton").disabled =
+          currentPage === totalPages;
+      }
+
+      // Pagination event listeners
+      document
+        .getElementById("prevPageButton")
+        .addEventListener("click", () => {
+          if (currentPage > _mob) {
+            currentPage--;
+            updateAccidentTableAndCharts();
+          }
+        });
+
+      document
+        .getElementById("nextPageButton")
+        .addEventListener("click", () => {
+          const totalPages = Math.ceil(allAccidents.length / itemsPerPage);
+          if (currentPage < totalPages) {
+            currentPage++;
+            updateAccidentTableAndCharts();
+          }
+        });
+
+      // Filter event listener
+      document
+        .getElementById("severityFilter")
+        .addEventListener("change", (e) => {
+          severityFilter = e.target.value;
+          currentPage = 1;
+          updateAccidentTableAndCharts();
+        });
+
+      // Listen to Firebase data
+      onValue(ref(db, "data"), (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          document.getElementById("latitude").innerText =
+            data.latitude || "Chưa có dữ liệu";
+          document.getElementById("longitude").innerText =
+            data.longitude || "Chưa có dữ liệu";
+          document.getElementById("distance").innerText =
+            data.distance || "Chưa có dữ liệu";
+
+          const googleMapsLink = data.google_maps_link || "#";
+          const linkElement = document.getElementById("googleMapsLink");
+          linkElement.href = googleMapsLink;
+          linkElement.innerText =
+            googleMapsLink === "#"
+              ? "Chưa có liên kết"
+              : "Xem trên Google Maps";
+
+          checkAnalysis();
+        }
+      });
+
+      // Listen to Firebase accidents
+      onValue(ref(db, "accidents"), (snapshot) => {
+        const accidents = snapshot.val();
+        allAccidents = accidents
+          ? Object.values(accidents).filter(
+              (acc) =>
+                acc.latitude && acc.longitude && acc.severity && acc.timestamp
+            )
+          : [];
+        currentPage = 1;
+        updateAccidentTableAndCharts();
+      });
+
+      // Event listeners
+      document
+        .getElementById("clearMapButton")
+        .addEventListener("click", clearMap);
+      document
+        .getElementById("updateStartButton")
+        .addEventListener("click", checkAnalysis);
+
+      document.getElementById("startLat").value =
+        localStorage.getItem("startLat") || "10.8506";
+      document.getElementById("startLng").value =
+        localStorage.getItem("startLng") || "106.7693";
+
+      document
+        .getElementById("updateStartButton")
+        .addEventListener("click", () => {
+          localStorage.setItem(
+            "startLat",
+            document.getElementById("startLat").value
+          );
+          localStorage.setItem(
+            "startLng",
+            document.getElementById("startLng").value
+          );
+        });
+    </script>
+  </body>
+</html>
